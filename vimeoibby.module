@@ -1,0 +1,136 @@
+<?php
+
+/**
+ * Implements hook_field_info().
+ *
+ * Provides the description of the field.
+ */
+function vimeoibby_field_info() {
+  return array(
+    'vimeo_ibby' => array(
+      'label' => t('Vimeo video for ib.by'),
+      'description' => t('Output vimeo video'),
+      'default_widget' => 'vimeoibby_video',
+      'default_formatter' => 'vimeoibby_formatter_link',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function vimeoibby_field_is_empty($item, $field) {
+  return empty($item['vimeo_id']);
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function vimeoibby_field_formatter_info() {
+  $formatter = array(
+    'vimeoibby_formatter_link' => array(
+      'label' => t('Vimeo formatter link'),
+      'field types' => array('vimeo_ibby'),
+    ),
+    'vimeoibby_formatter_video' => array(
+      'label' => t('Vimeo formatter video'),
+      'field types' => array('vimeo_ibby'),
+    ),
+  );
+  return $formatter;
+}
+
+/**
+ * @param $vimeo_url - url on vimeo video
+ * @return mixed
+ */
+function _vimeo_oembed($vimeo_url) {
+  $oembed_url = url('http://vimeo.com/api/oembed.json', array(
+    'query' => array(
+      'url' => $vimeo_url,
+      'width' => 400,
+      'height' => 300
+    )
+  ));
+  $response = drupal_http_request($oembed_url);
+  $data = drupal_json_decode($response->data);
+  return $data;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  switch ($display['type']) {
+    case 'vimeoibby_formatter_link':
+      foreach ($items as $delta => $item) {
+        $element[$delta]['#markup'] = '<p>' . l('http://vimeo.com/' . $item['vimeo_id'], 'http://vimeo.com/' . $item['vimeo_id'], array('attributes' => array('target' => '_blank'))) . '</p>';
+      }
+      break;
+
+    case 'vimeoibby_formatter_video':
+      foreach ($items as $delta => $item) {
+        $video = _vimeo_oembed('http://vimeo.com/' . $item['vimeo_id']);
+        $image = theme('image', array('path' => $video['thumbnail_url']));
+        $element[$delta]['#markup'] = '<p>' . l($image, 'http://vimeo.com/' . $video['video_id'], array(
+            'html' => TRUE,
+            'attributes' => array('target' => '_blank')
+          )) . '</p>';
+      }
+      break;
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function vimeoibby_field_widget_info() {
+  return array(
+    'vimeoibby_video' => array(
+      'label' => t('Vimeo video'),
+      'field types' => array('vimeo_ibby'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function vimeoibby_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $element += array(
+    '#delta' => $delta,
+  );
+  $element['vimeo_id'] = array();
+  switch ($instance['widget']['type']) {
+    case 'vimeoibby_video':
+      $element['vimeo_id'] += array(
+        '#title' => t('Link on Vimeo video'),
+        '#type' => 'textfield',
+        '#default_value' => isset($items[$delta]['vimeo_id']) ? 'http://vimeo.com/' . $items[$delta]['vimeo_id'] : '',
+        '#size' => 128,
+        '#maxlength' => 128,
+        '#delta' => $delta,
+        '#field_name' => $element['#field_name'],
+        '#language' => $element['#language'],
+        '#element_validate' => array('vimeoibby_formatter_video_validate'),
+      );
+      break;
+  }
+  return $element;
+}
+
+/**
+ * Convert video link on video id
+ */
+function vimeoibby_formatter_video_validate($element, &$form_state) {
+  $delta = $element['#delta'];
+  $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
+  $field_name = $field['field_name'];
+  if (isset($form_state['values'][$field_name][$element['#language']][$delta])) {
+    $value = $form_state['values'][$field_name][$element['#language']][$delta];
+    $vimeo_id = _vimeo_oembed($value['vimeo_id'])['video_id'];
+    form_set_value($element, $vimeo_id, $form_state);
+  }
+}

@@ -1,0 +1,14 @@
+<?php
+
+function vimeoibby_field_schema($field) {
+  $columns = array(
+    'vimeo_id' => array('type' => 'varchar', 'length' => 10, 'not null' => FALSE),
+  );
+  $indexes = array(
+    'vimeo_id' => array('vimeo_id'),
+  );
+  return array(
+    'columns' => $columns,
+    'indexes' => $indexes,
+  );
+}
