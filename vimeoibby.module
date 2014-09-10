@@ -20,7 +20,7 @@ function vimeoibby_field_info() {
  * Implements hook_field_is_empty().
  */
 function vimeoibby_field_is_empty($item, $field) {
-  return empty($item['vimeo_id']);
+  return empty($item['vimeo_link']);
 }
 
 /**
@@ -30,6 +30,10 @@ function vimeoibby_field_formatter_info() {
   $formatter = array(
     'vimeoibby_formatter_link' => array(
       'label' => t('Vimeo formatter link'),
+      'field types' => array('vimeo_ibby'),
+    ),
+    'vimeoibby_formatter_thumbnail' => array(
+      'label' => t('Vimeo formatter thumbnail'),
       'field types' => array('vimeo_ibby'),
     ),
     'vimeoibby_formatter_video' => array(
@@ -69,7 +73,7 @@ function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance
       }
       break;
 
-    case 'vimeoibby_formatter_video':
+    case 'vimeoibby_formatter_thumbnail':
       foreach ($items as $delta => $item) {
         $video = _vimeo_oembed('http://vimeo.com/' . $item['vimeo_id']);
         $image = theme('image', array('path' => $video['thumbnail_url']));
@@ -77,6 +81,13 @@ function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance
             'html' => TRUE,
             'attributes' => array('target' => '_blank')
           )) . '</p>';
+      }
+      break;
+
+    case 'vimeoibby_formatter_video':
+      foreach ($items as $delta => $item) {
+        $video = _vimeo_oembed('http://vimeo.com/' . $item['vimeo_id']);
+        $element[$delta]['#markup'] = '<p>' . $video['html'] . '</p>';
       }
       break;
   }
@@ -102,35 +113,40 @@ function vimeoibby_field_widget_form(&$form, &$form_state, $field, $instance, $l
   $element += array(
     '#delta' => $delta,
   );
+  $element['vimeo_link'] = array();
   $element['vimeo_id'] = array();
   switch ($instance['widget']['type']) {
     case 'vimeoibby_video':
-      $element['vimeo_id'] += array(
+      $element['vimeo_link'] += array(
         '#title' => t('Link on Vimeo video'),
         '#type' => 'textfield',
-        '#default_value' => isset($items[$delta]['vimeo_id']) ? 'http://vimeo.com/' . $items[$delta]['vimeo_id'] : '',
+        '#default_value' => isset($items[$delta]['vimeo_link']) ? 'http://vimeo.com/' . $items[$delta]['vimeo_link'] : '',
         '#size' => 128,
         '#maxlength' => 128,
         '#delta' => $delta,
         '#field_name' => $element['#field_name'],
         '#language' => $element['#language'],
-        '#element_validate' => array('vimeoibby_formatter_video_validate'),
+//        '#element_validate' => array('vimeoibby_formatter_video_validate'),
+      );
+      $element['vimeo_id'] += array(
+        '#markup' => 'Vimeo video ID: '._vimeo_oembed($items[$delta]['vimeo_link'])['video_id'],
       );
       break;
   }
+  dpm($element);
   return $element;
 }
 
 /**
  * Convert video link on video id
  */
-function vimeoibby_formatter_video_validate($element, &$form_state) {
-  $delta = $element['#delta'];
-  $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
-  $field_name = $field['field_name'];
-  if (isset($form_state['values'][$field_name][$element['#language']][$delta])) {
-    $value = $form_state['values'][$field_name][$element['#language']][$delta];
-    $vimeo_id = _vimeo_oembed($value['vimeo_id'])['video_id'];
-    form_set_value($element, $vimeo_id, $form_state);
-  }
-}
+//function vimeoibby_formatter_video_validate($element, &$form_state) {
+//  $delta = $element['#delta'];
+//  $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
+//  $field_name = $field['field_name'];
+//  if (isset($form_state['values'][$field_name][$element['#language']][$delta])) {
+//    $value = $form_state['values'][$field_name][$element['#language']][$delta];
+//    $vimeo_id = _vimeo_oembed($value['vimeo_id'])['video_id'];
+//    form_set_value($element, $vimeo_id, $form_state);
+//  }
+//}
