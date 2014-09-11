@@ -44,6 +44,42 @@ function vimeoibby_field_formatter_info() {
   return $formatter;
 }
 
+function vimeoibby_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $image_styles = image_style_options(FALSE, PASS_THROUGH);
+  $element['image_style'] = array(
+    '#title' => t('Image style'),
+    '#type' => 'select',
+    '#default_value' => $settings['image_style'],
+    '#empty_option' => t('None (original image)'),
+    '#options' => $image_styles,
+  );
+
+  return $element;
+}
+
+function vimeoibby_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = array();
+
+  $image_styles = image_style_options(FALSE, PASS_THROUGH);
+  // Unset possible 'No defined styles' option.
+  unset($image_styles['']);
+  // Styles could be lost because of enabled/disabled modules that defines
+  // their styles in code.
+  if (isset($image_styles[$settings['image_style']])) {
+    $summary[] = t('Image style: @style', array('@style' => $image_styles[$settings['image_style']]));
+  }
+  else {
+    $summary[] = t('Original image');
+  }
+  dpm($image_styles);
+  return implode('<br />', $summary);
+}
+
 /**
  * @param $vimeo_url - url on vimeo video
  * @return mixed
@@ -77,7 +113,7 @@ function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance
       foreach ($items as $delta => $item) {
         $video = _vimeo_oembed($item['vimeo_link']);
         $image = theme('image', array('path' => $video['thumbnail_url']));
-        $element[$delta]['#markup'] = '<p>' . l($image, 'http://vimeo.com/' . $video['video_id'], array(
+        $element[$delta]['#markup'] = '<p>' . l($image, $item['vimeo_link'], array(
             'html' => TRUE,
             'attributes' => array('target' => '_blank')
           )) . '</p>';
@@ -118,7 +154,7 @@ function vimeoibby_field_widget_form(&$form, &$form_state, $field, $instance, $l
   switch ($instance['widget']['type']) {
     case 'vimeoibby_video':
       $element['vimeo_link'] += array(
-        '#title' => t('Link on Vimeo video'),
+        '#title' => t('Link to Vimeo video'),
         '#type' => 'textfield',
         '#default_value' => isset($items[$delta]['vimeo_link']) ? $items[$delta]['vimeo_link'] : '',
         '#size' => 128,
