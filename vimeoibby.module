@@ -75,7 +75,7 @@ function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance
 
     case 'vimeoibby_formatter_thumbnail':
       foreach ($items as $delta => $item) {
-        $video = _vimeo_oembed('http://vimeo.com/' . $item['vimeo_id']);
+        $video = _vimeo_oembed($item['vimeo_link']);
         $image = theme('image', array('path' => $video['thumbnail_url']));
         $element[$delta]['#markup'] = '<p>' . l($image, 'http://vimeo.com/' . $video['video_id'], array(
             'html' => TRUE,
@@ -86,7 +86,7 @@ function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance
 
     case 'vimeoibby_formatter_video':
       foreach ($items as $delta => $item) {
-        $video = _vimeo_oembed('http://vimeo.com/' . $item['vimeo_id']);
+        $video = _vimeo_oembed($item['vimeo_link']);
         $element[$delta]['#markup'] = '<p>' . $video['html'] . '</p>';
       }
       break;
@@ -112,41 +112,44 @@ function vimeoibby_field_widget_info() {
 function vimeoibby_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
   $element += array(
     '#delta' => $delta,
+    'vimeo_link' => array(),
+    'vimeo_id' => array(),
   );
-  $element['vimeo_link'] = array();
-  $element['vimeo_id'] = array();
   switch ($instance['widget']['type']) {
     case 'vimeoibby_video':
       $element['vimeo_link'] += array(
         '#title' => t('Link on Vimeo video'),
         '#type' => 'textfield',
-        '#default_value' => isset($items[$delta]['vimeo_link']) ? 'http://vimeo.com/' . $items[$delta]['vimeo_link'] : '',
+        '#default_value' => isset($items[$delta]['vimeo_link']) ? $items[$delta]['vimeo_link'] : '',
         '#size' => 128,
         '#maxlength' => 128,
         '#delta' => $delta,
         '#field_name' => $element['#field_name'],
         '#language' => $element['#language'],
-//        '#element_validate' => array('vimeoibby_formatter_video_validate'),
       );
       $element['vimeo_id'] += array(
-        '#markup' => 'Vimeo video ID: '._vimeo_oembed($items[$delta]['vimeo_link'])['video_id'],
+        '#delta' => $delta,
+        '#field_name' => $element['#field_name'],
+        '#language' => $element['#language'],
+        '#markup' => isset($items[$delta]['vimeo_link']) ? 'Vimeo video ID: '._vimeo_oembed($items[$delta]['vimeo_link'])['video_id'] : '',
+        '#element_validate' => array('insert_vimeo_id'),
       );
       break;
   }
-  dpm($element);
   return $element;
 }
 
+
 /**
- * Convert video link on video id
+ * Convert video link to video id
  */
-//function vimeoibby_formatter_video_validate($element, &$form_state) {
-//  $delta = $element['#delta'];
-//  $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
-//  $field_name = $field['field_name'];
-//  if (isset($form_state['values'][$field_name][$element['#language']][$delta])) {
-//    $value = $form_state['values'][$field_name][$element['#language']][$delta];
-//    $vimeo_id = _vimeo_oembed($value['vimeo_id'])['video_id'];
-//    form_set_value($element, $vimeo_id, $form_state);
-//  }
-//}
+function insert_vimeo_id($element, &$form_state) {
+  $delta = $element['#delta'];
+  $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
+  $field_name = $field['field_name'];
+  if (isset($form_state['values'][$field_name][$element['#language']][$delta])) {
+    $value = $form_state['values'][$field_name][$element['#language']][$delta];
+    $vimeo_id = _vimeo_oembed($value['vimeo_link'])['video_id'];
+    form_set_value($element, $vimeo_id, $form_state);
+  }
+}
