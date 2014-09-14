@@ -29,16 +29,18 @@ function vimeoibby_field_is_empty($item, $field) {
 function vimeoibby_field_formatter_info() {
   $formatter = array(
     'vimeoibby_formatter_link' => array(
-      'label' => t('Vimeo formatter link'),
+      'label' => t('Vimeo link'),
       'field types' => array('vimeo_ibby'),
     ),
     'vimeoibby_formatter_thumbnail' => array(
-      'label' => t('Vimeo formatter thumbnail'),
+      'label' => t('Vimeo thumbnail'),
       'field types' => array('vimeo_ibby'),
+      'settings' => vimeoibby_default_settings_thumbnail(),
     ),
     'vimeoibby_formatter_video' => array(
-      'label' => t('Vimeo formatter video'),
+      'label' => t('Vimeo video'),
       'field types' => array('vimeo_ibby'),
+      'settings' => array('thumb_size' => '', )
     ),
   );
   return $formatter;
@@ -46,23 +48,47 @@ function vimeoibby_field_formatter_info() {
 
 function vimeoibby_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
   $display = $instance['display'][$view_mode];
+  $type = $instance['display'][$view_mode]['type'];
   $settings = $display['settings'];
   $image_styles = image_style_options(FALSE, PASS_THROUGH);
-  $element['image_style'] = array(
-    '#title' => t('Image style'),
-    '#type' => 'select',
-    '#default_value' => $settings['image_style'],
-    '#empty_option' => t('None (original image)'),
-    '#options' => $image_styles,
-  );
-
+  switch($type){
+    case'vimeoibby_formatter_thumbnail':
+      $element['thumb_size'] = array(
+        '#title' => t('Image style'),
+        '#type' => 'select',
+        '#default_value' => $settings['thumb_size'],
+        '#empty_option' => t('None (original image)'),
+        '#options' => $image_styles,
+      );
+      $link_types = array(
+        'content' => t('Content'),
+        'video' => t('Video'),
+      );
+      $element['image_link'] = array(
+        '#title' => t('Link image to'),
+        '#type' => 'select',
+        '#default_value' => $settings['image_link'],
+        '#empty_option' => t('Nothing'),
+        '#options' => $link_types,
+      );
+      break;
+    case'vimeoibby_formatter_video':
+      $element['thumb_size'] = array(
+        '#title' => t('Image style'),
+        '#type' => 'select',
+        '#default_value' => $settings['thumb_size'],
+        '#empty_option' => t('None (original video size)'),
+        '#options' => $image_styles,
+      );
+      break;
+  }
   return $element;
 }
 
 function vimeoibby_field_formatter_settings_summary($field, $instance, $view_mode) {
   $display = $instance['display'][$view_mode];
   $settings = $display['settings'];
-
+  $type = $instance['display'][$view_mode]['type'];
   $summary = array();
 
   $image_styles = image_style_options(FALSE, PASS_THROUGH);
@@ -70,26 +96,60 @@ function vimeoibby_field_formatter_settings_summary($field, $instance, $view_mod
   unset($image_styles['']);
   // Styles could be lost because of enabled/disabled modules that defines
   // their styles in code.
-  if (isset($image_styles[$settings['image_style']])) {
-    $summary[] = t('Image style: @style', array('@style' => $image_styles[$settings['image_style']]));
+
+  switch($type){
+    case 'vimeoibby_formatter_thumbnail':
+      if (isset($image_styles[$settings['thumb_size']])) {
+        $summary[] = t('Image style: @style', array('@style' => $image_styles[$settings['thumb_size']]));
+      }
+      else {
+        $summary[] = t('Original image');
+      }
+      $link_types = array(
+        'content' => t('Linked to content'),
+        'video' => t('Linked to video'),
+      );
+      // Display this setting only if image is linked.
+      if (isset($link_types[$settings['image_link']])) {
+        $summary[] = $link_types[$settings['image_link']];
+      }
+      break;
+    case 'vimeoibby_formatter_video':
+      if (isset($image_styles[$settings['thumb_size']])) {
+        $summary[] = t('Video size: @style', array('@style' => $image_styles[$settings['thumb_size']]));
+      }
+      else {
+        $summary[] = t('Original video size');
+      }
+      break;
   }
-  else {
-    $summary[] = t('Original image');
-  }
-  dpm($image_styles);
+
   return implode('<br />', $summary);
+}
+
+/**
+ * Vimeo.com's default thumbnail settings.
+ * @return Array
+ *    Default values keyed by the setting name.
+ */
+function vimeoibby_default_settings_thumbnail() {
+  $defaults = array(
+    'thumb_size' => 'medium',
+    'image_link' => '',
+  );
+  return $defaults;
 }
 
 /**
  * @param $vimeo_url - url on vimeo video
  * @return mixed
  */
-function _vimeo_oembed($vimeo_url) {
+function _vimeo_oembed($vimeo_url, $width = 800, $height = 600) {
   $oembed_url = url('http://vimeo.com/api/oembed.json', array(
     'query' => array(
       'url' => $vimeo_url,
-      'width' => 400,
-      'height' => 300
+      'width' => $width,
+      'height' => $height
     )
   ));
   $response = drupal_http_request($oembed_url);
@@ -102,6 +162,8 @@ function _vimeo_oembed($vimeo_url) {
  */
 function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
   $element = array();
+  $width = image_style_load($display['settings']['thumb_size'])['effects'][0]['data']['width'];
+  $height = image_style_load($display['settings']['thumb_size'])['effects'][0]['data']['height'];
   switch ($display['type']) {
     case 'vimeoibby_formatter_link':
       foreach ($items as $delta => $item) {
@@ -111,18 +173,28 @@ function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance
 
     case 'vimeoibby_formatter_thumbnail':
       foreach ($items as $delta => $item) {
-        $video = _vimeo_oembed($item['vimeo_link']);
+        $attributes = array(
+          'html' => TRUE,
+          'attributes' => array('target' => '_blank')
+        );
+        $video = _vimeo_oembed($item['vimeo_link'], $width, $height);
         $image = theme('image', array('path' => $video['thumbnail_url']));
-        $element[$delta]['#markup'] = '<p>' . l($image, $item['vimeo_link'], array(
-            'html' => TRUE,
-            'attributes' => array('target' => '_blank')
-          )) . '</p>';
+        $uri = entity_uri($entity_type, $entity);
+        if($display['settings']['image_link'] == 'content'){
+          $content = l($image, $uri['path'], $attributes);
+        }elseif($display['settings']['image_link'] == 'video'){
+          $content = l($image, $item['vimeo_link'], $attributes);
+        }else{
+          $content = $image;
+        }
+
+        $element[$delta]['#markup'] = '<p>' . $content  . '</p>';
       }
       break;
 
     case 'vimeoibby_formatter_video':
       foreach ($items as $delta => $item) {
-        $video = _vimeo_oembed($item['vimeo_link']);
+        $video = _vimeo_oembed($item['vimeo_link'], $width, $height);
         $element[$delta]['#markup'] = '<p>' . $video['html'] . '</p>';
       }
       break;
