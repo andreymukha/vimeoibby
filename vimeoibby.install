@@ -4,10 +4,12 @@ function vimeoibby_field_schema($field) {
   $columns = array(
     'vimeo_id' => array('type' => 'varchar', 'length' => 10, 'not null' => FALSE),
     'vimeo_link' => array('type' => 'varchar', 'length' => 128, 'not null' => FALSE),
+    'vimeo_thumb_fid' => array('type' => 'int', 'size' => 'normal', 'not null' => TRUE),
   );
   $indexes = array(
     'vimeo_id' => array('vimeo_id'),
     'vimeo_link' => array('vimeo_link'),
+    'vimeo_thumb_fid' => array('vimeo_thumb_fid'),
   );
   return array(
     'columns' => $columns,

@@ -159,10 +159,35 @@ function _vimeo_oembed($vimeo_url, $width = 800, $height = 600) {
 }
 
 /**
+ * Implements hook_field_presave().
+ */
+function vimeoibby_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  $settings = $instance['settings'];
+
+  foreach($items as $delta=>$item) {
+    $file_path = file_build_uri($settings['thumbnail_directory']);
+    if (!file_prepare_directory($file_path, FILE_MODIFY_PERMISSIONS)) {
+      drupal_mkdir($file_path);
+    }
+    $video = _vimeo_oembed($item['vimeo_link']);
+//    system_retrieve_file($video['thumbnail_url'], $file_path, FILE_EXISTS_REPLACE);
+    $file = system_retrieve_file($video['thumbnail_url'], $file_path, TRUE);
+    dpm($file);
+  }
+}
+
+/**
  * Implements hook_field_formatter_view().
  */
 function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
   $element = array();
+  dpm($instance);
+  $set = db_select('field_config_instance', 'fi')
+    ->condition('id', 88)
+    ->fields('fi', array('data'))
+    ->execute()
+    ->fetchField();
+  dpm(unserialize($set));
   $width = image_style_load($display['settings']['thumb_size'])['effects'][0]['data']['width'];
   $height = image_style_load($display['settings']['thumb_size'])['effects'][0]['data']['height'];
   switch ($display['type']) {
@@ -243,6 +268,12 @@ function vimeoibby_field_widget_form(&$form, &$form_state, $field, $instance, $l
         '#markup' => isset($items[$delta]['vimeo_link']) ? 'Vimeo video ID: '._vimeo_oembed($items[$delta]['vimeo_link'])['video_id'] : '',
         '#element_validate' => array('insert_vimeo_id'),
       );
+//      $element['vimeo_thumb_fid'] += array(
+//        '#delta' => $delta,
+//        '#field_name' => $element['#field_name'],
+//        '#language' => $element['#language'],
+//        '#element_validate' => array('insert_vimeo_thumb_fid'),
+//      );
       break;
   }
   return $element;
@@ -261,4 +292,8 @@ function insert_vimeo_id($element, &$form_state) {
     $vimeo_id = _vimeo_oembed($value['vimeo_link'])['video_id'];
     form_set_value($element, $vimeo_id, $form_state);
   }
+}
+
+function insert_vimeo_thumb_fid($element, &$form_state) {
+  dpm($element);
 }
