@@ -12,6 +12,9 @@ function vimeoibby_field_info() {
       'description' => t('Output vimeo video'),
       'default_widget' => 'vimeoibby_video',
       'default_formatter' => 'vimeoibby_formatter_link',
+      'instance_settings' => array(
+        'thumbnail_directory' => '',
+      ),
     ),
   );
 }
@@ -21,6 +24,21 @@ function vimeoibby_field_info() {
  */
 function vimeoibby_field_is_empty($item, $field) {
   return empty($item['vimeo_link']);
+}
+
+/**
+ * Implements hook_field_instance_settings_form().
+ */
+function vimeoibby_field_instance_settings_form($field, $instance) {
+  $settings = $instance['settings'];
+  $form['thumbnail_directory'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Thumbnail directory'),
+    '#default_value' => $settings['thumbnail_directory'],
+    '#description' => t('Optional subdirectory within the upload destination where thumbnail will be stored. Do not include preceding or trailing slashes.'),
+    '#weight' => 3,
+  );
+  return $form;
 }
 
 /**
@@ -36,6 +54,7 @@ function vimeoibby_field_formatter_info() {
       'label' => t('Vimeo thumbnail'),
       'field types' => array('vimeo_ibby'),
       'settings' => vimeoibby_default_settings_thumbnail(),
+      //todo засунуть файл в настройку
     ),
     'vimeoibby_formatter_video' => array(
       'label' => t('Vimeo video'),
@@ -159,16 +178,31 @@ function _vimeo_oembed($vimeo_url, $width = 800, $height = 600) {
 }
 
 /**
+ * Implements hook_field_presave().
+ */
+function vimeoibby_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  $settings = $instance['settings'];
+  foreach($items as $delta=>$item){
+    $file_path = file_build_uri($settings['thumbnail_directory']);
+    if (!file_prepare_directory($file_path, $options = FILE_MODIFY_PERMISSIONS)) {
+      drupal_mkdir($file_path);
+    }
+    $video = _vimeo_oembed($item['vimeo_link']);
+    $file = system_retrieve_file($video['thumbnail_url'], $file_path, FILE_EXISTS_REPLACE);
+  }
+}
+
+/**
  * Implements hook_field_formatter_view().
  */
-function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, &$items, $display) {
   $element = array();
   $width = image_style_load($display['settings']['thumb_size'])['effects'][0]['data']['width'];
   $height = image_style_load($display['settings']['thumb_size'])['effects'][0]['data']['height'];
   switch ($display['type']) {
     case 'vimeoibby_formatter_link':
       foreach ($items as $delta => $item) {
-        $element[$delta]['#markup'] = '<p>' . l('http://vimeo.com/' . $item['vimeo_id'], 'http://vimeo.com/' . $item['vimeo_id'], array('attributes' => array('target' => '_blank'))) . '</p>';
+        $element[$delta]['#markup'] = '<p>' . l($item['vimeo_link'], $item['vimeo_link'], array('attributes' => array('target' => '_blank'))) . '</p>';
       }
       break;
 
@@ -180,6 +214,10 @@ function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance
         );
         $video = _vimeo_oembed($item['vimeo_link'], $width, $height);
         $image = theme('image', array('path' => $video['thumbnail_url']));
+//        $image = theme('image_style', array(
+//          'style_name' => $display['settings']['thumb_size'],
+//          'path'       => $video['thumbnail_url'],
+//        ));
         $uri = entity_uri($entity_type, $entity);
         if($display['settings']['image_link'] == 'content'){
           $content = l($image, $uri['path'], $attributes);
