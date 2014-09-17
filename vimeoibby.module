@@ -24,6 +24,21 @@ function vimeoibby_field_is_empty($item, $field) {
 }
 
 /**
+ * Implements hook_field_instance_settings_form().
+ */
+function vimeoibby_field_instance_settings_form($field, $instance) {
+  $settings = $instance['settings'];
+  $form['thumbnail_directory'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Thumbnail directory'),
+    '#default_value' => $settings['thumbnail_directory'],
+    '#description' => t('Optional subdirectory within the upload destination where thumbnail will be stored. Do not include preceding or trailing slashes.'),
+    '#weight' => 3,
+  );
+  return $form;
+}
+
+/**
  * Implements hook_field_formatter_info().
  */
 function vimeoibby_field_formatter_info() {
