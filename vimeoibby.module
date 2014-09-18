@@ -188,6 +188,7 @@ function vimeoibby_field_formatter_view($entity_type, $entity, $field, $instance
     case 'vimeoibby_formatter_thumbnail':
       foreach ($items as $delta => $item) {
         $image_link = file_load($item['vimeo_thumb_fid'])->uri;
+        dpm($item);
         $attributes = array(
           'html' => TRUE,
           'attributes' => array('target' => '_blank')
@@ -298,7 +299,5 @@ function insert_vimeo_thumb_fid($element, &$form_state) {
   }
   $video = _vimeo_oembed($vimeo_link);
   $file = system_retrieve_file($video['thumbnail_url'], $file_path, TRUE, FILE_EXISTS_REPLACE);
-  if(method_exists($file, 'fid')){
     form_set_value($element, $file->fid, $form_state);
-  }
 }
