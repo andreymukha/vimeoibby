@@ -298,5 +298,7 @@ function insert_vimeo_thumb_fid($element, &$form_state) {
   }
   $video = _vimeo_oembed($vimeo_link);
   $file = system_retrieve_file($video['thumbnail_url'], $file_path, TRUE, FILE_EXISTS_REPLACE);
-  form_set_value($element, $file->fid, $form_state);
+  if(method_exists($file, 'fid')){
+    form_set_value($element, $file->fid, $form_state);
+  }
 }
