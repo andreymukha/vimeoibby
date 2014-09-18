@@ -137,8 +137,8 @@ function vimeoibby_field_formatter_settings_summary($field, $instance, $view_mod
  */
 function vimeoibby_default_settings_thumbnail() {
   $defaults = array(
-    'thumb_size' => 'medium',
-    'image_link' => '',
+    'thumb_size' => 'large',
+    'image_link' => 'video',
   );
   return $defaults;
 }
