@@ -250,7 +250,9 @@ function vimeoibby_field_widget_info() {
  * Implements hook_field_widget_form().
  */
 function vimeoibby_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-  $vimeo_data = _vimeo_oembed($items[$delta]['vimeo_link']);
+  if (isset($items[$delta]['vimeo_link'])) {
+    $vimeo_data = _vimeo_oembed($items[$delta]['vimeo_link']);
+  }
   $element += array(
     '#delta' => $delta,
     'vimeo_link' => array(),
