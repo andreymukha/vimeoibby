@@ -20,6 +20,22 @@ function vimeoibby_field_info() {
 }
 
 /**
+ *  Implements hook_field_validate().
+ */
+function vimeoibby_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+  foreach ($items as $delta => $item) {
+    if (!empty($item['vimeo_link'])) {
+      if (!preg_match('!https?:\/\/w?w?w?(vimeo)\.com!', $item['vimeo_link'])) {
+        $errors[$field['field_name']][$langcode][$delta][] = array(
+          'error' => 'vimeoibby_invalid',
+          'message' => t('You must enter link to vimeo video'),
+        );
+      }
+    }
+  }
+}
+
+/**
  * Implements hook_field_is_empty().
  */
 function vimeoibby_field_is_empty($item, $field) {
@@ -270,11 +286,23 @@ function vimeoibby_field_widget_form(&$form, &$form_state, $field, $instance, $l
   return $element;
 }
 
+/**
+ * Implements hook_field_widget_error().
+ */
+function vimeoibby_field_widget_error($element, $error, $form, &$form_state) {
+  switch ($error['error']) {
+    case 'vimeoibby_invalid':
+      form_error($element, $error['message']);
+      break;
+  }
+}
 
 /**
  * Convert video link to video id
  */
 function insert_vimeo_id($element, &$form_state) {
+  dpm($element);
+  dpm($form_state);
   $delta = $element['#delta'];
   $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
   $field_name = $field['field_name'];
@@ -292,11 +320,13 @@ function insert_vimeo_thumb_fid($element, &$form_state) {
   $delta = $element['#delta'];
   $file_path = file_build_uri($form_state['field'][$element['#field_name']][$element['#language']]['instance']['settings']['thumbnail_directory']);
   $vimeo_link = $form_state['values'][$element['#field_name']][$element['#language']][$delta]['vimeo_link'];
-  $file = new stdClass();
-  if (!file_prepare_directory($file_path, FILE_MODIFY_PERMISSIONS)) {
-    drupal_mkdir($file_path);
+  $field_value_link = $form_state['values'][$element['#field_name']][$element['#language']][$delta]['vimeo_link'];
+  if (preg_match('!https?:\/\/w?w?w?(vimeo)\.com!', $field_value_link)) {
+    if (!file_prepare_directory($file_path, FILE_MODIFY_PERMISSIONS)) {
+      drupal_mkdir($file_path);
+    }
+    $video = _vimeo_oembed($vimeo_link);
+    $file = system_retrieve_file($video['thumbnail_url'], $file_path, TRUE, FILE_EXISTS_REPLACE);
+    form_set_value($element, $file->fid, $form_state);
   }
-  $video = _vimeo_oembed($vimeo_link);
-  $file = system_retrieve_file($video['thumbnail_url'], $file_path, TRUE, FILE_EXISTS_REPLACE);
-  form_set_value($element, $file->fid, $form_state);
 }
